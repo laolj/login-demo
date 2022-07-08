@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
+import 'package:dio/dio.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 //登录界面
 class LoginPage extends StatefulWidget {
 
@@ -9,20 +11,132 @@ class LoginPage extends StatefulWidget {
   _LoginPageState createState() => new _LoginPageState();
 }
 
+
+class UserRestful<T>{
+  int code;
+  String message;
+  List<T> data;
+  UserRestful({required this.code,required this.message,required this.data});
+
+  factory UserRestful.fromJson(Map<String, dynamic> json,T Function(Map<String, dynamic>) cvt) {
+    return UserRestful(
+      code: json['code'],
+      message: json['message'],
+      //转换json数据，然后一个一个对象元素取出来，再转换为当前对象的集合
+      data: List.of(json['data']).map((e) => cvt(e)).toList(),
+    );
+  }
+
+
+  @override
+  String toString() {
+    return 'UserRestful{code: $code, message: $message, data: $data}';
+  }
+}
+
+
+class UserInfo {
+  String username;
+  String role;
+  num id;
+  String password;
+
+  UserInfo({required this.username,required this.role,required this.id,required this.password});
+
+  factory UserInfo.fromJson(Map<String, dynamic> json) {
+    return UserInfo(
+      username: json['username'],
+      role: json['role'],
+      id: json['id'],
+      password: json['password'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['username'] = this.username;
+    data['id'] = this.id;
+    data['role'] = this.role;
+    data['password'] = this.password;
+    return data;
+  }
+
+  @override
+  String toString() {
+    return 'UserInfo{username: $username, role: $role, id: $id, password: $password}';
+  }
+}
+
+
+
 class _LoginPageState extends State<LoginPage> {
+  //发送请求测试
+  void doGet() async{
+    Dio dio=new Dio();
+    String url="http://localhost:8081/test";
+    Response response = await dio.get(url);
+    var data = response.data;
+    print(data.toString());
+  }
+
+  //登录返回结果
+  Future<UserRestful<UserInfo>> login(String username,String password) async{
+    print("=========================");
+    String url="http://localhost:8081/login";
+    Map<String,dynamic> map=Map();
+    map["username"] = username;
+    map["password"] = password;
+    final response = await Dio().get(
+        url,queryParameters: map,
+        //UserInfo.fromJson 传入方法解析
+        options: Options(responseType: ResponseType.json)).then((res)=>UserRestful<UserInfo>.fromJson(res.data,UserInfo.fromJson));
+    // if (response.statusCode==200) {
+    //   print(UserRestful.fromJson(response.data));
+    // }
+    print(response.runtimeType);
+    print(response.data);
+    // Map<String,dynamic> decode = json.decode(data.toString());
+    // print(decode['data']);
+    return response;
+  }
+
+  //提示框
+  void showToast(
+      String text, {
+        gravity: ToastGravity.CENTER,
+        toastLength: Toast.LENGTH_SHORT,
+      }) {
+    Fluttertoast.showToast(
+        msg: text,
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.black45,
+        textColor: Colors.white,
+        fontSize: 16.0,
+        webPosition: "center",
+        webShowClose: true,
+        webBgColor: "blue"
+    );
+  }
   @override
   Widget build(BuildContext context) {
+    doGet();
+    //login("admin0", "1230");
     final logo = Hero(//飞行动画
       tag: 'hero',
       child: CircleAvatar(//圆形图片组件
         backgroundColor: Colors.transparent,//透明
         radius: 48.0,//半径
-        child: Image.asset("images/1657206482097.png"),//图片
+        child: Image.asset("images/R-C.jp"
+            "g"),//图片
       ),
     );
 
+
+    String username='';
+    String loginPassword='';
     final email = TextFormField(//用户名
-      keyboardType: TextInputType.emailAddress,
       autofocus: false,//是否自动对焦
       initialValue: 'liyuanjinglyj@163.com',//默认输入的类容
       decoration: InputDecoration(
@@ -32,6 +146,10 @@ class _LoginPageState extends State<LoginPage> {
               borderRadius: BorderRadius.circular(32.0)//设置圆角大小
           )
       ),
+      onChanged: (value){
+        username=value;
+        //username=(String)value;
+      },
     );
 
     final password = TextFormField(//密码
@@ -45,6 +163,9 @@ class _LoginPageState extends State<LoginPage> {
               borderRadius: BorderRadius.circular(32.0)
           )
       ),
+      onChanged: (val){
+        loginPassword = val;
+      },
     );
 
     final loginButton = Padding(
@@ -57,7 +178,18 @@ class _LoginPageState extends State<LoginPage> {
           minWidth: 200.0,
           height: 42.0,
           onPressed: (){
-            Navigator.of(context).pushNamed(HomePage.tag);//点击跳转界面
+            //登录逻辑
+            print(username);
+            Future<UserRestful<UserInfo>> future = login(username, loginPassword);
+            future.then((value) => {
+              if(value.code==200){
+                Navigator.of(context).pushNamed(HomePage.tag)//点击跳转界面
+              }else{
+                showToast("用户名或者密码错误")
+              }
+            });
+            print(loginPassword);
+            //login(username!, loginPassword!);
           },
           color: Colors.green,//按钮颜色
           child: Text('登 录', style: TextStyle(color: Colors.white, fontSize: 20.0),),
@@ -67,7 +199,9 @@ class _LoginPageState extends State<LoginPage> {
 
     final forgotLabel = FlatButton(//扁平化的按钮，前面博主已经讲解过
       child: Text('忘记密码?', style: TextStyle(color: Colors.black54, fontSize: 18.0),),
-      onPressed: () {},
+      onPressed: () {
+        showToast("还未开发");
+      },
     );
 
     return Scaffold(
